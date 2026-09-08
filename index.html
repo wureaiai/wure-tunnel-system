@@ -1,0 +1,1542 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>WURE TUNNEL - 書庫與寄賣管理系統</title>
+    
+    <!-- PWA & Mobile Optimization -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="WURE TUNNEL">
+    <meta name="theme-color" content="#ffffff">
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              'neutral-surface': '#fcfcfc',
+              'neutral-card': '#ffffff',
+              'brand-dark': '#0f172a',
+              'brand-muted': '#64748b',
+              'brand-light': '#f1f5f9',
+              'brand-border': '#e2e8f0',
+            }
+          }
+        }
+      }
+    </script>
+    <!-- React, ReactDOM & Babel CDNs -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Noto+Sans+TC:wght@300;400;500;700;900&display=swap');
+      body { 
+        font-family: 'Inter', 'Noto Sans TC', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+        background-color: #fafafa;
+        color: #0f172a;
+        user-select: none;
+        letter-spacing: -0.01em;
+      }
+      ::-webkit-scrollbar { width: 5px; height: 5px; }
+      ::-webkit-scrollbar-track { background: #fafafa; }
+      ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; }
+      ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(-8px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      .animate-fadeIn { animation: fadeIn 0.25s ease-out forwards; }
+    </style>
+</head>
+<body class="bg-slate-50/70 text-slate-900 min-h-screen">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const FIXED_QUICK_KEYS = ['全部', '香港人製', '香港書', '台灣書', '一拳書', 'ZINE', '明信片', '貼紙', 'Tee', '其他'];
+        const CATEGORIES_INPUT = ['香港人製', '香港書', '台灣書', '一拳書', 'ZINE', '明信片', '貼紙', 'Tee', '其他'];
+
+        // 初始示範圖書與商品庫存
+        const INITIAL_PRODUCTS = [
+            { id: 'BK001', title: '一臉一詞', isbn: '9789881234561', artist: 'Apple Wong', category: '香港書', type: 'consignment', price: 120, stock: 7, holdStock: 0, soldCount: 2, artistSplit: 0.70, cover: 'https://placehold.co/300x400/f1f5f9/334155?text=%E4%B8%80%E8%87%89%E4%B8%80%E8%A9%9E' },
+            { id: 'BK002', title: '香港微光集', isbn: '9789881234562', artist: 'Apple Wong', category: '香港人製', type: 'consignment', price: 80, stock: 8, holdStock: 0, soldCount: 0, artistSplit: 0.70, cover: 'https://placehold.co/300x400/f1f5f9/334155?text=%E9%A6%99%E6%B8%AF%E5%BE%AE%E5%85%89%E9%9B%86' },
+            { id: 'BK003', title: '城市觀察手帳', isbn: '9789881234563', artist: '陳大文', category: 'ZINE', type: 'consignment', price: 65, stock: 12, holdStock: 4, soldCount: 5, artistSplit: 0.65, cover: 'https://placehold.co/300x400/f1f5f9/334155?text=%E5%9F%8E%E5%B8%82%E8%A7%80%E2%BD%8B' },
+            { id: 'BK004', title: '邊緣記憶 Tee', isbn: '9789881234564', artist: '獨立創作者', category: 'Tee', type: 'outright', price: 280, stock: 6, holdStock: 0, soldCount: 3, artistSplit: 1.0, cover: 'https://placehold.co/300x400/f1f5f9/334155?text=Tee' },
+            { id: 'BK005', title: '舊城記憶明信片套裝', isbn: '9789881234565', artist: '陳大文', category: '明信片', type: 'consignment', price: 45, stock: 20, holdStock: 5, soldCount: 8, artistSplit: 0.70, cover: 'https://placehold.co/300x400/f1f5f9/334155?text=%E6%98%8E%E4%BF%A1%E7%89%87' },
+            { id: 'BK006', title: '台灣文藝散步選', isbn: '9789881234566', artist: '台灣小誌組', category: '台灣書', type: 'consignment', price: 95, stock: 10, holdStock: 2, soldCount: 4, artistSplit: 0.70, cover: 'https://placehold.co/300x400/f1f5f9/334155?text=%E5%8F%B0%E7%81%A3%E6%9B%B8' },
+            { id: 'BK007', title: '一拳閱讀誌 Vol.1', isbn: '9789881234567', artist: '一拳書館', category: '一拳書', type: 'consignment', price: 110, stock: 15, holdStock: 0, soldCount: 6, artistSplit: 0.70, cover: 'https://placehold.co/300x400/f1f5f9/334155?text=%E4%B8%80%E6%B2%B3%E6%9B%B8' }
+        ];
+
+        function App() {
+            const getSavedState = (key, defaultValue) => {
+                try {
+                    const saved = localStorage.getItem(`wure_tunnel_${key}`);
+                    return saved ? JSON.parse(saved) : defaultValue;
+                } catch (e) {
+                    return defaultValue;
+                }
+            };
+
+            const setSavedState = (key, value) => {
+                try {
+                    localStorage.setItem(`wure_tunnel_${key}`, JSON.stringify(value));
+                } catch (e) {
+                    console.error('Storage save error:', e);
+                }
+            };
+
+            const [products, setProducts] = React.useState(() => getSavedState('products', INITIAL_PRODUCTS));
+            const [systemMode, setSystemMode] = React.useState('pos'); // 'pos' or 'admin'
+            const [activeTab, setActiveTab] = React.useState('pos'); // 'pos', 'settlement', 'inventory', 'hold', 'sales'
+            const [selectedCategory, setSelectedCategory] = React.useState('全部');
+            const [searchQuery, setSearchQuery] = React.useState('');
+            
+            // Cart & POS state
+            const [cart, setCart] = React.useState([]);
+            const [paymentMethod, setPaymentMethod] = React.useState('FPS');
+            const [salesLogs, setSalesLogs] = React.useState(() => getSavedState('salesLogs', [
+                { id: 'TX1001', date: '2026-03-08 14:20', items: [{ title: '一臉一詞', qty: 1, price: 120 }], total: 120, paymentMethod: 'FPS' },
+                { id: 'TX1002', date: '2026-03-08 15:45', items: [{ title: '舊城記憶明信片套裝', qty: 2, price: 45 }], total: 90, paymentMethod: 'PayMe' }
+            ]));
+
+            // Hold items log state (記錄活動/市集/客人 Hold 貨備註)
+            const [holdList, setHoldList] = React.useState(() => getSavedState('holdList', [
+                { id: 'H001', targetName: 'Book Fair 市集展覽預留', productId: 'BK003', productTitle: '城市觀察手帳', qty: 4, date: '2026-03-08', note: '帶往活動現場銷售' },
+                { id: 'H002', targetName: '黃小姐 (預留自取)', productId: 'BK005', productTitle: '舊城記憶明信片套裝', qty: 5, date: '2026-03-07', note: '門市預留至本週末' }
+            ]));
+
+            const [isNewProductModalOpen, setIsNewProductModalOpen] = React.useState(false);
+            const [isHoldModalOpen, setIsHoldModalOpen] = React.useState(false);
+            const [isImportModalOpen, setIsImportModalOpen] = React.useState(false);
+            const [importText, setImportText] = React.useState('');
+            const [editingProduct, setEditingProduct] = React.useState(null);
+            const [toastMessage, setToastMessage] = React.useState('');
+            const [holdFilterQuery, setHoldFilterQuery] = React.useState('');
+            
+            // 二次確認下架刪除狀態
+            const [isDeleteConfirming, setIsDeleteConfirming] = React.useState(false);
+
+            // Product Form state
+            const [formData, setFormData] = React.useState({
+                title: '',
+                artist: '',
+                category: '香港書',
+                type: 'consignment',
+                price: 100,
+                stock: 10,
+                holdStock: 0,
+                artistSplit: 0.70,
+                cover: ''
+            });
+
+            // Fast Hold Form State
+            const [holdForm, setHoldForm] = React.useState({
+                productId: '',
+                targetName: '',
+                qty: 1,
+                note: ''
+            });
+
+            // Fast Stock In Form State
+            const [fastStockInId, setFastStockInId] = React.useState('');
+            const [fastStockInQty, setFastStockInQty] = React.useState(1);
+
+            // Persistence Effects
+            React.useEffect(() => { setSavedState('products', products); }, [products]);
+            React.useEffect(() => { setSavedState('salesLogs', salesLogs); }, [salesLogs]);
+            React.useEffect(() => { setSavedState('holdList', holdList); }, [holdList]);
+
+            const showToast = (msg) => {
+                setToastMessage(msg);
+                setTimeout(() => setToastMessage(''), 3200);
+            };
+
+            const copySettlementToClipboard = (artistName) => {
+                const artistProducts = products.filter(p => p.artist === artistName);
+                let message = `Hello ${artistName}！WURE TUNNEL 寄賣銷售更新：\n\n`;
+                let totalPayable = 0;
+
+                artistProducts.forEach(p => {
+                    const sold = p.soldCount || 0;
+                    const split = p.type === 'outright' ? 1.0 : (p.artistSplit !== undefined ? p.artistSplit : 0.70);
+                    const payable = sold * p.price * split;
+                    totalPayable += payable;
+
+                    message += `《${p.title}》\n* 上期售出：${sold} 本\n* 現在尚餘寄賣量為：${p.stock} 本\n\n`;
+                });
+
+                message += `* 應結算總額：HK$ ${Math.round(totalPayable)}\n感謝支持🌟 FPS 你方便嗎？～`;
+
+                const textarea = document.createElement('textarea');
+                textarea.value = message;
+                document.body.appendChild(textarea);
+                textarea.select();
+                try {
+                    document.execCommand('copy');
+                    showToast(`已複製 ${artistName} 的對賬訊息至剪貼簿！`);
+                } catch (err) {
+                    showToast('複製失敗，請重試');
+                }
+                document.body.removeChild(textarea);
+            };
+
+            const handleFastStockIn = (e) => {
+                e.preventDefault();
+                if (!fastStockInId) {
+                    showToast('請選擇要補庫的商品');
+                    return;
+                }
+                const qty = parseInt(fastStockInQty);
+                if (isNaN(qty) || qty <= 0) {
+                    showToast('請輸入有效的補貨數量');
+                    return;
+                }
+
+                setProducts(prev => prev.map(p => {
+                    if (p.id === fastStockInId) {
+                        return { ...p, stock: p.stock + qty };
+                    }
+                    return p;
+                }));
+
+                const prod = products.find(p => p.id === fastStockInId);
+                showToast(`已成功為《${prod?.title || ''}》補貨 ${qty} 本！`);
+                setFastStockInId('');
+                setFastStockInQty(1);
+            };
+
+            const handleAddHoldStock = (e) => {
+                e.preventDefault();
+                if (!holdForm.productId) {
+                    showToast('請選擇要 Hold 貨預留的書籍');
+                    return;
+                }
+                const qty = parseInt(holdForm.qty);
+                if (isNaN(qty) || qty <= 0) {
+                    showToast('請輸入有效的 Hold 貨數量');
+                    return;
+                }
+
+                const targetProd = products.find(p => p.id === holdForm.productId);
+                if (!targetProd) return;
+
+                const currentAvailable = targetProd.stock - (targetProd.holdStock || 0);
+                if (qty > currentAvailable) {
+                    showToast(`預留數量 (${qty}) 不能超過現有門市可售庫存 (${currentAvailable})`);
+                    return;
+                }
+
+                // 更新產品 Hold 庫存
+                setProducts(prev => prev.map(p => {
+                    if (p.id === holdForm.productId) {
+                        return { ...p, holdStock: (p.holdStock || 0) + qty };
+                    }
+                    return p;
+                }));
+
+                // 新增 Hold 紀錄
+                const nowStr = new Date().toISOString().split('T')[0];
+                const newHoldItem = {
+                    id: 'H' + Math.floor(100 + Math.random() * 900),
+                    targetName: holdForm.targetName || 'Book Fair / 市集活動預留',
+                    productId: targetProd.id,
+                    productTitle: targetProd.title,
+                    qty: qty,
+                    date: nowStr,
+                    note: holdForm.note || '市集/活動展覽預留'
+                };
+
+                setHoldList(prev => [newHoldItem, ...prev]);
+                showToast(`已成功預留《${targetProd.title}》 ${qty} 本（${newHoldItem.targetName}）！`);
+                setIsHoldModalOpen(false);
+                setHoldForm({ productId: '', targetName: '', qty: 1, note: '' });
+            };
+
+            // 釋放 Hold 貨 (取消預留，歸還門市可售)
+            const handleReleaseHold = (holdItem) => {
+                setProducts(prev => prev.map(p => {
+                    if (p.id === holdItem.productId) {
+                        const newHold = Math.max(0, (p.holdStock || 0) - holdItem.qty);
+                        return { ...p, holdStock: newHold };
+                    }
+                    return p;
+                }));
+                setHoldList(prev => prev.filter(h => h.id !== holdItem.id));
+                showToast(`已釋放《${holdItem.productTitle}》的 ${holdItem.qty} 本預留，回歸門市可售庫存！`);
+            };
+
+            // 將 Hold 貨直接轉為售出 (如市集現場賣出或客人完成交收)
+            const handleConvertHoldToSale = (holdItem) => {
+                const prod = products.find(p => p.id === holdItem.productId);
+                if (!prod) return;
+
+                setProducts(prev => prev.map(p => {
+                    if (p.id === holdItem.productId) {
+                        return {
+                            ...p,
+                            stock: Math.max(0, p.stock - holdItem.qty),
+                            holdStock: Math.max(0, (p.holdStock || 0) - holdItem.qty),
+                            soldCount: (p.soldCount || 0) + holdItem.qty
+                        };
+                    }
+                    return p;
+                }));
+
+                const nowStr = new Date().toLocaleString('zh-HK', { hour12: false }).replace(/\//g, '-');
+                const saleTotal = prod.price * holdItem.qty;
+                const newLog = {
+                    id: 'TX-HOLD-' + Math.floor(1000 + Math.random() * 9000),
+                    date: nowStr,
+                    items: [{ title: `${prod.title} (Hold預留轉售: ${holdItem.targetName})`, qty: holdItem.qty, price: prod.price }],
+                    total: saleTotal,
+                    paymentMethod: '市集/預留交收 (Event Sale)'
+                };
+
+                setSalesLogs(prev => [newLog, ...prev]);
+                setHoldList(prev => prev.filter(h => h.id !== holdItem.id));
+                showToast(`已成功將《${holdItem.productTitle}》x${holdItem.qty} 本轉為已售，完成結帳紀錄！`);
+            };
+
+            const uniqueArtists = React.useMemo(() => {
+                const artists = products.map(p => p.artist).filter(Boolean);
+                return Array.from(new Set(artists));
+            }, [products]);
+
+            const filteredProducts = React.useMemo(() => {
+                return products.filter(p => {
+                    const matchesCat = selectedCategory === '全部' || p.category === selectedCategory;
+                    const matchesSearch = p.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                                          p.artist.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                                          (p.isbn && p.isbn.includes(searchQuery)) ||
+                                          p.id.toLowerCase().includes(searchQuery.toLowerCase());
+                    return matchesCat && matchesSearch;
+                });
+            }, [products, selectedCategory, searchQuery]);
+
+            const filteredHoldList = React.useMemo(() => {
+                if (!holdFilterQuery.trim()) return holdList;
+                const q = holdFilterQuery.toLowerCase();
+                return holdList.filter(h => 
+                    h.productTitle.toLowerCase().includes(q) || 
+                    h.targetName.toLowerCase().includes(q) ||
+                    (h.note && h.note.toLowerCase().includes(q))
+                );
+            }, [holdList, holdFilterQuery]);
+
+            const addToCart = (product) => {
+                const availStock = product.stock - (product.holdStock || 0);
+                if (availStock <= 0) {
+                    showToast('該書籍目前無門市可售庫存（已售罄或被活動/市集 Hold 貨預留）');
+                    return;
+                }
+
+                setCart(prev => {
+                    const existing = prev.find(item => item.id === product.id);
+                    if (existing) {
+                        if (existing.qty >= availStock) {
+                            showToast(`已達門市可售上限 (${availStock} 本，已扣除活動 Hold 貨)`);
+                            return prev;
+                        }
+                        return prev.map(item => item.id === product.id ? { ...item, qty: item.qty + 1 } : item);
+                    }
+                    return [...prev, { ...product, qty: 1 }];
+                });
+            };
+
+            const updateCartQty = (id, delta) => {
+                setCart(prev => prev.map(item => {
+                    if (item.id === id) {
+                        const newQty = item.qty + delta;
+                        const product = products.find(p => p.id === id);
+                        const availStock = product ? (product.stock - (product.holdStock || 0)) : 0;
+                        if (newQty <= 0) return null;
+                        if (newQty > availStock) {
+                            showToast(`已超過門市可售庫存 (${availStock} 本)`);
+                            return item;
+                        }
+                        return { ...item, qty: newQty };
+                    }
+                    return item;
+                }).filter(Boolean));
+            };
+
+            const handleCheckout = () => {
+                if (cart.length === 0) return;
+                const total = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
+                const nowStr = new Date().toLocaleString('zh-HK', { hour12: false }).replace(/\//g, '-');
+                
+                const newLog = {
+                    id: 'TX' + Math.floor(100000 + Math.random() * 900000),
+                    date: nowStr,
+                    items: cart.map(c => ({ title: c.title, qty: c.qty, price: c.price })),
+                    total: total,
+                    paymentMethod: paymentMethod
+                };
+
+                setProducts(prev => prev.map(p => {
+                    const cartItem = cart.find(c => c.id === p.id);
+                    if (cartItem) {
+                        return {
+                            ...p,
+                            stock: Math.max(0, p.stock - cartItem.qty),
+                            soldCount: (p.soldCount || 0) + cartItem.qty
+                        };
+                    }
+                    return p;
+                }));
+
+                setSalesLogs(prev => [newLog, ...prev]);
+                setCart([]);
+                showToast(`已成功完成結帳！總額: HK$ ${total} (${paymentMethod})`);
+            };
+
+            const openNewProductModal = () => {
+                setFormData({
+                    title: '',
+                    artist: '',
+                    category: '香港書',
+                    type: 'consignment',
+                    price: 100,
+                    stock: 10,
+                    holdStock: 0,
+                    artistSplit: 0.70,
+                    cover: ''
+                });
+                setEditingProduct(null);
+                setIsDeleteConfirming(false);
+                setIsNewProductModalOpen(true);
+            };
+
+            const openEditProductModal = (product) => {
+                setEditingProduct(product);
+                setFormData({
+                    title: product.title || '',
+                    artist: product.artist || '',
+                    category: product.category || '香港書',
+                    type: product.type || 'consignment',
+                    price: product.price || 0,
+                    stock: product.stock || 0,
+                    holdStock: product.holdStock || 0,
+                    artistSplit: product.artistSplit !== undefined ? product.artistSplit : 0.70,
+                    cover: product.cover || ''
+                });
+                setIsDeleteConfirming(false);
+                setIsNewProductModalOpen(true);
+            };
+
+            // 安全刪除與下架處理
+            const handleDeleteProduct = () => {
+                if (!editingProduct) return;
+                const delTitle = editingProduct.title;
+                setProducts(prev => prev.filter(p => p.id !== editingProduct.id));
+                // 同時清理掉該商品的 Hold 貨紀錄
+                setHoldList(prev => prev.filter(h => h.productId !== editingProduct.id));
+                setIsNewProductModalOpen(false);
+                setEditingProduct(null);
+                setIsDeleteConfirming(false);
+                showToast(`已安全下架並刪除《${delTitle}》！`);
+            };
+
+            const handleSaveProduct = (e) => {
+                e.preventDefault();
+                if (!formData.title || !formData.artist) {
+                    showToast('請填寫書籍名稱與創作者/作者');
+                    return;
+                }
+
+                if (formData.holdStock > formData.stock) {
+                    showToast(`Hold 貨預留量 (${formData.holdStock}) 不能大於總庫存 (${formData.stock})`);
+                    return;
+                }
+
+                if (editingProduct) {
+                    setProducts(prev => prev.map(p => p.id === editingProduct.id ? { ...p, ...formData } : p));
+                    showToast('已成功更新舊貨品資料');
+                } else {
+                    const newProd = {
+                        id: 'BK' + String(products.length + 1).padStart(3, '0'),
+                        ...formData,
+                        holdStock: formData.holdStock || 0,
+                        soldCount: 0,
+                        cover: formData.cover || 'https://placehold.co/300x400/f1f5f9/334155?text=' + encodeURIComponent(formData.title || '新書')
+                    };
+                    setProducts(prev => [newProd, ...prev]);
+                    showToast('新書籍已成功建檔');
+                }
+                setIsNewProductModalOpen(false);
+            };
+
+            const handleImageUpload = (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                        setFormData(prev => ({ ...prev, cover: reader.result }));
+                    };
+                    reader.readAsDataURL(file);
+                }
+            };
+
+            const handleCSVImport = () => {
+                if (!importText.trim()) return;
+                const lines = importText.trim().split('\n');
+                const newProds = [];
+                lines.forEach((line, idx) => {
+                    const cols = line.split(',').map(c => c.trim());
+                    if (cols.length >= 3) {
+                        newProds.push({
+                            id: 'BK' + String(products.length + idx + 1).padStart(3, '0'),
+                            title: cols[0] || '未命名',
+                            artist: cols[1] || '未知創作者',
+                            category: cols[2] || '其他',
+                            price: parseFloat(cols[3]) || 100,
+                            stock: parseInt(cols[4]) || 10,
+                            holdStock: parseInt(cols[5]) || 0,
+                            type: cols[6] === '買斷' ? 'outright' : 'consignment',
+                            artistSplit: cols[6] === '買斷' ? 1.0 : 0.70,
+                            soldCount: 0,
+                            cover: 'https://placehold.co/300x400/f1f5f9/334155?text=' + encodeURIComponent(cols[0] || '書本')
+                        });
+                    }
+                });
+                if (newProds.length > 0) {
+                    setProducts(prev => [...newProds, ...prev]);
+                    showToast(`成功匯入 ${newProds.length} 筆書籍資料！`);
+                    setIsImportModalOpen(false);
+                    setImportText('');
+                } else {
+                    showToast('格式不正確，請確認 CSV 內容');
+                }
+            };
+
+            return (
+                <div class="flex flex-col min-h-screen bg-slate-50 text-slate-800 font-sans tracking-tight">
+                    {/* Toast Notification */}
+                    {toastMessage && (
+                        <div class="fixed top-5 right-5 z-50 bg-slate-900 text-white px-5 py-3 rounded-xl shadow-xl border border-slate-700 text-xs font-medium flex items-center gap-2.5 animate-fadeIn">
+                            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                            <span>{toastMessage}</span>
+                        </div>
+                    )}
+
+                    {/* TOP HEADER */}
+                    <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs">
+                        <div class="max-w-7xl mx-auto px-5 py-3.5 flex flex-col md:flex-row items-center justify-between gap-3">
+                            <div class="flex items-center gap-3.5">
+                                <div class="w-9 h-9 rounded-xl bg-slate-900 flex items-center justify-center text-white font-black text-xs tracking-wider shadow-xs">
+                                    WT
+                                </div>
+                                <div>
+                                    <h1 class="text-base font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
+                                        WURE TUNNEL <span class="text-[10px] uppercase font-mono tracking-wider px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200 font-bold">System</span>
+                                    </h1>
+                                    <p class="text-[11px] text-slate-500 font-medium">書庫與寄賣管理系統 • POS & Settlement</p>
+                                </div>
+                            </div>
+
+                            {/* System Mode Switcher */}
+                            <div class="flex items-center gap-1 w-full sm:w-auto justify-center bg-slate-100 p-1 rounded-xl border border-slate-200">
+                                <button 
+                                    onClick={() => {
+                                        setSystemMode('pos');
+                                        setActiveTab('pos');
+                                    }}
+                                    class={`flex-1 sm:flex-initial px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                                        systemMode === 'pos' 
+                                            ? 'bg-white text-slate-900 shadow-xs border border-slate-200' 
+                                            : 'text-slate-500 hover:text-slate-900'
+                                    }`}
+                                >
+                                    門市前台 (POS)
+                                </button>
+                                <button 
+                                    onClick={() => {
+                                        setSystemMode('admin');
+                                        setActiveTab('hold');
+                                    }}
+                                    class={`flex-1 sm:flex-initial px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                                        systemMode === 'admin' 
+                                            ? 'bg-white text-slate-900 shadow-xs border border-slate-200' 
+                                            : 'text-slate-500 hover:text-slate-900'
+                                    }`}
+                                >
+                                    後台管理系統
+                                </button>
+                            </div>
+
+                            {/* Action Buttons */}
+                            <div class="flex items-center gap-2">
+                                <button 
+                                    onClick={openNewProductModal}
+                                    class="px-4 py-2 bg-slate-900 hover:bg-black text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 active:scale-95"
+                                >
+                                    <span>+ 新書籍/商品增加</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* NAV TAB BAR */}
+                        <div class="max-w-7xl mx-auto px-5 flex items-center gap-2 border-t border-slate-100 pt-1 overflow-x-auto no-scrollbar">
+                            {systemMode === 'pos' ? (
+                                <>
+                                    <button 
+                                        onClick={() => setActiveTab('pos')} 
+                                        class={`px-4 py-2 text-xs font-bold transition-all border-b-2 flex items-center gap-1.5 ${
+                                            activeTab === 'pos' ? 'border-slate-900 text-slate-900 font-black' : 'border-transparent text-slate-400 hover:text-slate-700'
+                                        }`}
+                                    >
+                                        門市銷售 POS
+                                    </button>
+                                    <button 
+                                        onClick={() => setActiveTab('sales')} 
+                                        class={`px-4 py-2 text-xs font-bold transition-all border-b-2 flex items-center gap-1.5 ${
+                                            activeTab === 'sales' ? 'border-slate-900 text-slate-900 font-black' : 'border-transparent text-slate-400 hover:text-slate-700'
+                                        }`}
+                                    >
+                                        銷售日誌
+                                    </button>
+                                    <button 
+                                        onClick={() => setActiveTab('inventory')} 
+                                        class={`px-4 py-2 text-xs font-bold transition-all border-b-2 flex items-center gap-1.5 ${
+                                            activeTab === 'inventory' ? 'border-slate-900 text-slate-900 font-black' : 'border-transparent text-slate-400 hover:text-slate-700'
+                                        }`}
+                                    >
+                                        庫存查詢 (唯讀)
+                                    </button>
+                                </>
+                            ) : (
+                                <>
+                                    <button 
+                                        onClick={() => setActiveTab('hold')} 
+                                        class={`px-4 py-2 text-xs font-bold transition-all border-b-2 flex items-center gap-1.5 ${
+                                            activeTab === 'hold' ? 'border-slate-900 text-slate-900 font-black' : 'border-transparent text-slate-400 hover:text-slate-700'
+                                        }`}
+                                    >
+                                        📦 Hold 貨與市集預留管理
+                                    </button>
+                                    <button 
+                                        onClick={() => setActiveTab('settlement')} 
+                                        class={`px-4 py-2 text-xs font-bold transition-all border-b-2 flex items-center gap-1.5 ${
+                                            activeTab === 'settlement' ? 'border-slate-900 text-slate-900 font-black' : 'border-transparent text-slate-400 hover:text-slate-700'
+                                        }`}
+                                    >
+                                        寄賣季度對賬
+                                    </button>
+                                    <button 
+                                        onClick={() => setActiveTab('inventory')} 
+                                        class={`px-4 py-2 text-xs font-bold transition-all border-b-2 flex items-center gap-1.5 ${
+                                            activeTab === 'inventory' ? 'border-slate-900 text-slate-900 font-black' : 'border-transparent text-slate-400 hover:text-slate-700'
+                                        }`}
+                                    >
+                                        書庫與商品管理
+                                    </button>
+                                    <button 
+                                        onClick={() => setActiveTab('sales')} 
+                                        class={`px-4 py-2 text-xs font-bold transition-all border-b-2 flex items-center gap-1.5 ${
+                                            activeTab === 'sales' ? 'border-slate-900 text-slate-900 font-black' : 'border-transparent text-slate-400 hover:text-slate-700'
+                                        }`}
+                                    >
+                                        門市銷售紀錄
+                                    </button>
+                                </>
+                            )}
+                        </div>
+                    </header>
+
+                    {/* MAIN CONTENT AREA */}
+                    <main class="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6">
+                        {}
+                        {activeTab === 'pos' && (
+                            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                                {/* Left side: Product Grid & Search */}
+                                <div class="lg:col-span-8 space-y-4">
+                                    <div class="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-xs space-y-3">
+                                        <div class="relative">
+                                            <input 
+                                                type="text" 
+                                                placeholder="搜尋書名、創作者或條碼 ISBN..."
+                                                value={searchQuery}
+                                                onChange={(e) => setSearchQuery(e.target.value)}
+                                                class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-slate-900 focus:bg-white transition-all font-medium"
+                                            />
+                                        </div>
+
+                                        {/* QUICK KEYS BAR */}
+                                        <div class="space-y-1.5">
+                                            <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Quick Keys 分類過濾</div>
+                                            <div class="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+                                                {FIXED_QUICK_KEYS.map(cat => (
+                                                    <button
+                                                        key={cat}
+                                                        onClick={() => setSelectedCategory(cat)}
+                                                        class={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap border ${
+                                                            selectedCategory === cat 
+                                                                ? 'bg-slate-900 text-white border-slate-900 shadow-xs' 
+                                                                : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900 border-slate-200'
+                                                        }`}
+                                                    >
+                                                        {cat}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Products Grid */}
+                                    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3.5">
+                                        {filteredProducts.map(product => {
+                                            const hold = product.holdStock || 0;
+                                            const availStock = Math.max(0, product.stock - hold);
+                                            const isOutOfStock = availStock <= 0;
+
+                                            return (
+                                                <div 
+                                                    key={product.id}
+                                                    onClick={() => !isOutOfStock && addToCart(product)}
+                                                    class={`bg-white border rounded-2xl p-3 flex flex-col justify-between cursor-pointer transition-all hover:shadow-md group relative ${
+                                                        isOutOfStock 
+                                                            ? 'opacity-60 border-slate-200 bg-slate-50/60 cursor-not-allowed' 
+                                                            : 'border-slate-200 hover:border-slate-400'
+                                                    }`}
+                                                >
+                                                    <div class="aspect-[3/4] bg-slate-100 rounded-xl overflow-hidden mb-2.5 relative border border-slate-100">
+                                                        <img 
+                                                            src={product.cover} 
+                                                            alt={product.title} 
+                                                            class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                                            onError={(e) => { e.target.src = 'https://placehold.co/300x400/f1f5f9/334155?text=' + encodeURIComponent(product.title); }}
+                                                        />
+                                                        <span class="absolute top-1.5 left-1.5 bg-white/95 backdrop-blur-md text-slate-700 text-[10px] px-2 py-0.5 rounded-md font-mono font-medium border border-slate-200 shadow-xs">
+                                                            {product.category}
+                                                        </span>
+
+                                                        {/* Hold Stock Indicator Badge */}
+                                                        {hold > 0 && (
+                                                            <span class="absolute top-1.5 right-1.5 bg-amber-50 text-amber-800 border border-amber-200 text-[9px] font-bold px-1.5 py-0.5 rounded shadow-xs">
+                                                                Hold {hold}
+                                                            </span>
+                                                        )}
+
+                                                        {isOutOfStock && (
+                                                            <div class="absolute inset-0 bg-slate-900/60 flex flex-col items-center justify-center text-white p-2 text-center">
+                                                                <span class="font-black text-xs">暫無門市可售庫存</span>
+                                                                {hold > 0 && (
+                                                                    <span class="text-[9px] text-amber-200 mt-1 font-mono font-bold">（{hold}本被活動/預留扣除）</span>
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </div>
+
+                                                    <div>
+                                                        <h3 class="font-bold text-xs text-slate-900 line-clamp-1 group-hover:text-slate-700 transition-colors">
+                                                            {product.title}
+                                                        </h3>
+                                                        <p class="text-[11px] text-slate-500 line-clamp-1 mt-0.5">{product.artist}</p>
+                                                    </div>
+
+                                                    <div class="flex items-center justify-between mt-2.5 pt-2 border-t border-slate-100">
+                                                        <span class="text-xs font-black text-slate-900 font-mono">HK$ {product.price}</span>
+                                                        <span class={`text-[10px] px-1.5 py-0.5 rounded font-mono font-bold ${
+                                                            availStock > 3 ? 'bg-slate-100 text-slate-700' : 'bg-slate-200 text-slate-900'
+                                                        }`}>
+                                                            可售 {availStock}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                {/* Right side: Cart & Checkout */}
+                                <div class="lg:col-span-4">
+                                    <div class="bg-white rounded-2xl border border-slate-200/90 shadow-xs p-4 sticky top-20 flex flex-col h-[calc(100vh-110px)]">
+                                        <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                                            <h2 class="font-black text-slate-900 text-sm tracking-tight flex items-center gap-2">
+                                                門市結帳購物車
+                                            </h2>
+                                            {cart.length > 0 && (
+                                                <button 
+                                                    onClick={() => setCart([])} 
+                                                    class="text-[11px] font-medium text-slate-400 hover:text-slate-800 transition-colors"
+                                                >
+                                                    清空
+                                                </button>
+                                            )}
+                                        </div>
+
+                                        {/* Cart Items List */}
+                                        <div class="flex-1 overflow-y-auto py-3 space-y-2">
+                                            {cart.length === 0 ? (
+                                                <div class="h-full flex flex-col items-center justify-center text-slate-400 text-xs py-12">
+                                                    <span class="text-3xl mb-2 text-slate-300">🛒</span>
+                                                    <span class="font-bold text-slate-600">購物車目前是空的</span>
+                                                    <span class="text-[11px] text-slate-400 mt-1">點擊左側商品即可加入單據</span>
+                                                </div>
+                                            ) : (
+                                                cart.map(item => (
+                                                    <div key={item.id} class="bg-slate-50 p-2.5 rounded-xl border border-slate-200/80 flex items-center justify-between">
+                                                        <div class="flex-1 pr-2">
+                                                            <div class="font-bold text-xs text-slate-900 line-clamp-1">{item.title}</div>
+                                                            <div class="text-[11px] text-slate-500 font-mono mt-0.5">HK$ {item.price} / 本</div>
+                                                        </div>
+
+                                                        <div class="flex items-center gap-1.5 bg-white p-1 rounded-lg border border-slate-200">
+                                                            <button 
+                                                                onClick={() => updateCartQty(item.id, -1)} 
+                                                                class="w-5 h-5 rounded bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs flex items-center justify-center transition-colors"
+                                                            >
+                                                                -
+                                                            </button>
+                                                            <span class="text-xs font-bold w-4 text-center font-mono">{item.qty}</span>
+                                                            <button 
+                                                                onClick={() => updateCartQty(item.id, 1)} 
+                                                                class="w-5 h-5 rounded bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs flex items-center justify-center transition-colors"
+                                                            >
+                                                                +
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                ))
+                                            )}
+                                        </div>
+
+                                        {/* Payment Selector & Total */}
+                                        <div class="border-t border-slate-100 pt-3 space-y-3">
+                                            <div class="space-y-1">
+                                                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">付款方式</label>
+                                                <select 
+                                                    value={paymentMethod}
+                                                    onChange={(e) => setPaymentMethod(e.target.value)}
+                                                    class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:border-slate-900"
+                                                >
+                                                    <option value="FPS">FPS (轉數快)</option>
+                                                    <option value="PayMe">PayMe</option>
+                                                    <option value="Kpay">Kpay</option>
+                                                </select>
+                                            </div>
+
+                                            <div class="flex items-center justify-between text-sm pt-1 border-t border-slate-100">
+                                                <span class="text-slate-500 font-medium">總計金額</span>
+                                                <span class="text-xl font-black text-slate-900 font-mono">
+                                                    HK$ {cart.reduce((sum, item) => sum + item.price * item.qty, 0)}
+                                                </span>
+                                            </div>
+
+                                            <button 
+                                                onClick={handleCheckout}
+                                                disabled={cart.length === 0}
+                                                class={`w-full py-2.5 rounded-xl font-bold text-xs transition-all shadow-xs flex items-center justify-center gap-2 ${
+                                                    cart.length > 0 
+                                                        ? 'bg-slate-900 hover:bg-black text-white cursor-pointer active:scale-95' 
+                                                        : 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
+                                                }`}
+                                            >
+                                                <span>確認收款結帳</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {}
+                        {activeTab === 'hold' && (
+                            <div class="space-y-6">
+                                {/* Header Info Card */}
+                                <div class="bg-gradient-to-r from-slate-900 to-slate-800 text-white p-5 rounded-2xl shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                                    <div>
+                                        <h2 class="text-base font-extrabold flex items-center gap-2">
+                                            <span>📦</span> 活動 / 市集 / 客人 Hold 貨預留管理中心
+                                        </h2>
+                                        <p class="text-xs text-slate-300 mt-1">
+                                            所有已被市集、Book Fair 或客人預留的書籍庫存會自動從「門市可售庫存」扣除，防止門市重覆售出。
+                                        </p>
+                                    </div>
+                                    <div class="flex items-center gap-2">
+                                        <button 
+                                            onClick={() => setIsHoldModalOpen(true)} 
+                                            class="px-4 py-2 bg-amber-400 hover:bg-amber-300 text-slate-950 font-extrabold text-xs rounded-xl shadow-xs transition-all active:scale-95"
+                                        >
+                                            + 新增市集 / 客人預留
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                                    {/* Left 8 Cols: Active Hold Records List */}
+                                    <div class="lg:col-span-8 bg-white p-5 rounded-2xl border border-slate-200/90 shadow-xs space-y-4">
+                                        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+                                            <h3 class="text-sm font-extrabold text-slate-900 flex items-center gap-2">
+                                                進行中的 Hold 貨預留項目
+                                                <span class="text-xs font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 font-mono">
+                                                    {filteredHoldList.length} 筆
+                                                </span>
+                                            </h3>
+
+                                            <input 
+                                                type="text"
+                                                placeholder="搜尋預留名稱或書名..."
+                                                value={holdFilterQuery}
+                                                onChange={(e) => setHoldFilterQuery(e.target.value)}
+                                                class="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-slate-900 w-full sm:w-56"
+                                            />
+                                        </div>
+
+                                        <div class="space-y-3">
+                                            {filteredHoldList.length === 0 ? (
+                                                <div class="text-slate-400 text-xs text-center py-12 space-y-2">
+                                                    <div class="text-2xl">📭</div>
+                                                    <div>目前無進行中的 Hold 貨或活動預留紀錄</div>
+                                                </div>
+                                            ) : (
+                                                filteredHoldList.map(item => {
+                                                    const targetProd = products.find(p => p.id === item.productId);
+                                                    return (
+                                                        <div key={item.id} class="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 flex flex-col md:flex-row md:items-center justify-between gap-3 hover:border-slate-300 transition-all">
+                                                            <div class="space-y-1">
+                                                                <div class="flex items-center gap-2">
+                                                                    <span class="font-extrabold text-slate-900 text-sm">《{item.productTitle}》</span>
+                                                                    <span class="bg-amber-100 text-amber-900 border border-amber-200 font-bold px-2 py-0.5 rounded-md text-xs font-mono">
+                                                                        Hold {item.qty} 本
+                                                                    </span>
+                                                                </div>
+                                                                <div class="text-xs text-slate-600 font-medium">
+                                                                    <b>預留用途 / 對象:</b> <span class="text-slate-900 font-bold">{item.targetName}</span>
+                                                                    <span class="mx-2 text-slate-300">|</span>
+                                                                    <b>日期:</b> <span class="font-mono">{item.date}</span>
+                                                                </div>
+                                                                {item.note && (
+                                                                    <div class="text-[11px] text-slate-500 bg-white px-2.5 py-1 rounded-lg border border-slate-200 inline-block mt-1">
+                                                                        <b>備註:</b> {item.note}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+
+                                                            <div class="flex items-center gap-2 pt-2 md:pt-0 border-t md:border-t-0 border-slate-200">
+                                                                <button 
+                                                                    onClick={() => handleConvertHoldToSale(item)}
+                                                                    title="市集現場賣出或客人完成交收時，點擊轉為已售銷售紀錄"
+                                                                    class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all active:scale-95 flex items-center gap-1"
+                                                                >
+                                                                    <span>✓ 轉為已售結帳</span>
+                                                                </button>
+                                                                <button 
+                                                                    onClick={() => handleReleaseHold(item)}
+                                                                    title="取消此預留，讓數量歸還門市可售"
+                                                                    class="px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 font-bold text-xs rounded-xl transition-all shadow-xs"
+                                                                >
+                                                                    釋放歸還
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Right 4 Cols: Fast Stock-In Helper */}
+                                    <div class="lg:col-span-4 space-y-4">
+                                        <div class="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-xs space-y-4">
+                                            <div>
+                                                <h3 class="text-sm font-extrabold text-slate-900">快速進貨補庫 (Stock In)</h3>
+                                                <p class="text-xs text-slate-500 mt-0.5">選取現有書籍直接增加總庫存</p>
+                                            </div>
+
+                                            <form onSubmit={handleFastStockIn} class="space-y-3 text-xs">
+                                                <div>
+                                                    <label class="block text-slate-700 mb-1 font-bold">選擇書籍 *</label>
+                                                    <select 
+                                                        value={fastStockInId}
+                                                        onChange={e => setFastStockInId(e.target.value)}
+                                                        class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 font-bold focus:outline-none focus:border-slate-900"
+                                                    >
+                                                        <option value="">-- 請選擇書籍 --</option>
+                                                        {products.map(p => (
+                                                            <option key={p.id} value={p.id}>
+                                                                {p.title} ({p.artist}) - 現存: {p.stock} 本
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+
+                                                <div>
+                                                    <label class="block text-slate-700 mb-1 font-bold">進貨補庫數量 *</label>
+                                                    <input 
+                                                        type="number" 
+                                                        min="1"
+                                                        value={fastStockInQty}
+                                                        onChange={e => setFastStockInQty(e.target.value)}
+                                                        class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 font-mono font-bold focus:outline-none focus:border-slate-900"
+                                                    />
+                                                </div>
+
+                                                <button type="submit" class="w-full py-2.5 bg-slate-900 hover:bg-black text-white font-bold rounded-xl text-xs shadow-xs transition-all active:scale-95">
+                                                    確認補貨入庫
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {}
+                        {activeTab === 'settlement' && (
+                            <div class="space-y-6">
+                                <div class="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-xs space-y-4">
+                                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-100 pb-4">
+                                        <div>
+                                            <h2 class="text-base font-extrabold text-slate-900 flex items-center gap-2">
+                                                創作者寄賣季度對賬與拆賬
+                                            </h2>
+                                            <p class="text-xs text-slate-500">一鍵複製極簡格式 WhatsApp 對賬訊息</p>
+                                        </div>
+                                    </div>
+
+                                    {/* Artist Cards Grid */}
+                                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                        {uniqueArtists.map(artist => {
+                                            const artistProducts = products.filter(p => p.artist === artist);
+                                            const totalPayable = artistProducts.reduce((sum, item) => {
+                                                const sold = item.soldCount || 0;
+                                                const price = item.price || 0;
+                                                const split = item.type === 'outright' ? 1.0 : (item.artistSplit !== undefined ? item.artistSplit : 0.70);
+                                                return sum + (sold * price * split);
+                                            }, 0);
+
+                                            return (
+                                                <div key={artist} class="bg-slate-50/80 rounded-2xl border border-slate-200/90 p-4 space-y-3 flex flex-col justify-between hover:border-slate-400 transition-all shadow-xs">
+                                                    <div>
+                                                        <div class="flex items-center justify-between border-b border-slate-200 pb-2.5">
+                                                            <h3 class="font-black text-sm text-slate-900">
+                                                                {artist}
+                                                            </h3>
+                                                            <span class="text-[10px] px-2 py-0.5 rounded bg-white text-slate-700 font-mono font-bold border border-slate-200">
+                                                                {artistProducts.length} 個品項
+                                                            </span>
+                                                        </div>
+
+                                                        <div class="py-3 space-y-1.5 text-xs text-slate-700">
+                                                            {artistProducts.map(p => (
+                                                                <div key={p.id} class="flex items-center justify-between bg-white px-3 py-1.5 rounded-lg border border-slate-200/80">
+                                                                    <span class="truncate max-w-[150px] font-semibold text-slate-900">《{p.title}》</span>
+                                                                    <div class="text-[11px] font-mono font-bold text-slate-600 flex items-center gap-2">
+                                                                        <span>售 {p.soldCount || 0} 本</span>
+                                                                        <span class="text-slate-300">|</span>
+                                                                        <span>餘 {p.stock} 本</span>
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+
+                                                    <div class="pt-3 border-t border-slate-200/80 flex items-center justify-between">
+                                                        <div>
+                                                            <div class="text-[10px] font-bold text-slate-400">應結算總額</div>
+                                                            <div class="text-base font-black text-slate-900 font-mono">
+                                                                HK$ {Math.round(totalPayable)}
+                                                            </div>
+                                                        </div>
+                                                        <button 
+                                                            onClick={() => copySettlementToClipboard(artist)}
+                                                            class="px-3 py-1.5 bg-slate-900 hover:bg-black text-white rounded-xl text-xs font-bold transition-all shadow-xs active:scale-95"
+                                                        >
+                                                            複製對賬訊息
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {}
+                        {activeTab === 'inventory' && (
+                            <div class="space-y-4">
+                                <div class="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-xs flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                                    <div>
+                                        <h2 class="text-base font-extrabold text-slate-900 flex items-center gap-2">
+                                            書庫與商品管理 {systemMode === 'admin' ? '(後台編輯模式)' : '(唯讀)'}
+                                        </h2>
+                                        <p class="text-xs text-slate-500 mt-0.5">點擊品項右側的「編輯」即可修改資料或下架刪除貨品。</p>
+                                    </div>
+
+                                    <div class="flex items-center gap-2 w-full md:w-auto">
+                                        <input 
+                                            type="text" 
+                                            placeholder="搜尋書名/作者/ISBN..."
+                                            value={searchQuery}
+                                            onChange={(e) => setSearchQuery(e.target.value)}
+                                            class="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-slate-900 flex-1 md:w-64"
+                                        />
+                                        {systemMode === 'admin' && (
+                                            <button 
+                                                onClick={() => setIsImportModalOpen(true)}
+                                                class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-xl border border-slate-200 transition-all whitespace-nowrap"
+                                            >
+                                                批次 CSV 匯入
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div class="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden">
+                                    <div class="overflow-x-auto">
+                                        <table class="w-full text-left border-collapse text-xs">
+                                            <thead>
+                                                <tr class="bg-slate-50 text-slate-500 font-bold border-b border-slate-200 uppercase text-[10px] tracking-wider">
+                                                    <th class="py-3 px-4">書籍資料</th>
+                                                    <th class="py-3 px-4">創作者 / 作者</th>
+                                                    <th class="py-3 px-4">分類 / 模式</th>
+                                                    <th class="py-3 px-4">售價</th>
+                                                    <th class="py-3 px-4">總庫存</th>
+                                                    <th class="py-3 px-4">Hold預留</th>
+                                                    <th class="py-3 px-4">門市可售</th>
+                                                    <th class="py-3 px-4">已售出</th>
+                                                    {systemMode === 'admin' && <th class="py-3 px-4 text-right">操作</th>}
+                                                </tr>
+                                            </thead>
+                                            <tbody class="divide-y divide-slate-100 font-medium">
+                                                {filteredProducts.map(p => {
+                                                    const hold = p.holdStock || 0;
+                                                    const avail = Math.max(0, p.stock - hold);
+                                                    return (
+                                                        <tr key={p.id} class="hover:bg-slate-50/80 transition-colors">
+                                                            <td class="py-3 px-4">
+                                                                <div class="flex items-center gap-3">
+                                                                    <img 
+                                                                        src={p.cover} 
+                                                                        alt={p.title} 
+                                                                        class="w-9 h-12 object-cover rounded-md border border-slate-200 bg-slate-100 flex-shrink-0"
+                                                                        onError={(e) => { e.target.src = 'https://placehold.co/300x400/f1f5f9/334155?text=' + encodeURIComponent(p.title); }}
+                                                                    />
+                                                                    <div>
+                                                                        <div class="font-extrabold text-slate-900 text-xs">《{p.title}》</div>
+                                                                        <div class="text-[10px] font-mono text-slate-400">{p.id} {p.isbn ? `• ${p.isbn}` : ''}</div>
+                                                                    </div>
+                                                                </div>
+                                                            </td>
+                                                            <td class="py-3 px-4 text-slate-700 font-bold">{p.artist}</td>
+                                                            <td class="py-3 px-4">
+                                                                <span class="px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-bold text-[10px] border border-slate-200 mr-1">
+                                                                    {p.category}
+                                                                </span>
+                                                                <span class="text-[10px] text-slate-400 font-mono">
+                                                                    {p.type === 'outright' ? '買斷' : `寄賣(${Math.round((p.artistSplit||0.7)*100)}%)`}
+                                                                </span>
+                                                            </td>
+                                                            <td class="py-3 px-4 font-mono font-bold text-slate-900">HK$ {p.price}</td>
+                                                            <td class="py-3 px-4 font-mono font-bold text-slate-800">{p.stock}</td>
+                                                            <td class="py-3 px-4 font-mono">
+                                                                {hold > 0 ? (
+                                                                    <span class="px-2 py-0.5 bg-amber-50 text-amber-800 border border-amber-200 font-bold rounded text-[10px]">
+                                                                        {hold} 本
+                                                                    </span>
+                                                                ) : (
+                                                                    <span class="text-slate-300">0</span>
+                                                                )}
+                                                            </td>
+                                                            <td class="py-3 px-4 font-mono font-black text-slate-900">
+                                                                {avail > 0 ? avail : <span class="text-rose-500 font-bold">缺貨</span>}
+                                                            </td>
+                                                            <td class="py-3 px-4 font-mono text-slate-600">{p.soldCount || 0}</td>
+                                                            {systemMode === 'admin' && (
+                                                                <td class="py-3 px-4 text-right">
+                                                                    <button 
+                                                                        onClick={() => openEditProductModal(p)}
+                                                                        class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg text-xs font-bold border border-slate-200 transition-all active:scale-95"
+                                                                    >
+                                                                        編輯貨品
+                                                                    </button>
+                                                                </td>
+                                                            )}
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {}
+                        {activeTab === 'sales' && (
+                            <div class="space-y-4">
+                                <div class="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-xs flex justify-between items-center">
+                                    <div>
+                                        <h2 class="text-base font-extrabold text-slate-900">門市銷售歷史日誌</h2>
+                                        <p class="text-xs text-slate-500">記錄所有前台 POS 與市集 Hold 貨轉售交易</p>
+                                    </div>
+                                    <div class="text-right">
+                                        <span class="text-[10px] font-bold text-slate-400 block">累積總筆數</span>
+                                        <span class="text-lg font-black text-slate-900 font-mono">{salesLogs.length} 筆</span>
+                                    </div>
+                                </div>
+
+                                <div class="space-y-3">
+                                    {salesLogs.map(log => (
+                                        <div key={log.id} class="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-xs flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+                                            <div class="space-y-1">
+                                                <div class="flex items-center gap-2">
+                                                    <span class="font-mono font-extrabold text-slate-900 text-xs">{log.id}</span>
+                                                    <span class="text-slate-400">•</span>
+                                                    <span class="text-xs text-slate-500 font-mono">{log.date}</span>
+                                                    <span class="px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-bold text-[10px] border border-slate-200 font-mono">
+                                                        {log.paymentMethod}
+                                                    </span>
+                                                </div>
+                                                <div class="text-xs text-slate-700 font-medium">
+                                                    {log.items.map((it, idx) => (
+                                                        <span key={idx} class="mr-3">
+                                                            《{it.title}》x{it.qty} (HK$ {it.price})
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                            <div class="text-right border-t md:border-t-0 border-slate-100 pt-2 md:pt-0 w-full md:w-auto">
+                                                <span class="text-[10px] text-slate-400 block font-bold">總額</span>
+                                                <span class="text-sm font-black font-mono text-slate-900">HK$ {log.total}</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </main>
+
+                    {}
+                    {/* EDIT / NEW PRODUCT MODAL */}
+                    {isNewProductModalOpen && (
+                        <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-fadeIn">
+                            <div class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto">
+                                <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+                                    <h3 class="font-black text-base text-slate-900">
+                                        {editingProduct ? `編輯舊貨品資料 (${editingProduct.id})` : '新增書籍 / 商品建檔'}
+                                    </h3>
+                                    <button 
+                                        onClick={() => {
+                                            setIsNewProductModalOpen(false);
+                                            setIsDeleteConfirming(false);
+                                        }} 
+                                        class="text-slate-400 hover:text-slate-800 text-sm font-bold"
+                                    >
+                                        ✕
+                                    </button>
+                                </div>
+
+                                <form onSubmit={handleSaveProduct} class="space-y-4 pt-4 text-xs">
+                                    <div>
+                                        <label class="block font-bold text-slate-700 mb-1">書籍 / 商品名稱 *</label>
+                                        <input 
+                                            type="text" 
+                                            required
+                                            value={formData.title}
+                                            onChange={e => setFormData({ ...formData, title: e.target.value })}
+                                            placeholder="例如：一臉一詞"
+                                            class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 font-bold focus:outline-none focus:border-slate-900"
+                                        />
+                                    </div>
+
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label class="block font-bold text-slate-700 mb-1">創作者 / 作者 *</label>
+                                            <input 
+                                                type="text" 
+                                                required
+                                                value={formData.artist}
+                                                onChange={e => setFormData({ ...formData, artist: e.target.value })}
+                                                placeholder="例如：Apple Wong"
+                                                class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 font-bold focus:outline-none focus:border-slate-900"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label class="block font-bold text-slate-700 mb-1">分類 *</label>
+                                            <select 
+                                                value={formData.category}
+                                                onChange={e => setFormData({ ...formData, category: e.target.value })}
+                                                class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 font-bold focus:outline-none focus:border-slate-900"
+                                            >
+                                                {CATEGORIES_INPUT.map(cat => (
+                                                    <option key={cat} value={cat}>{cat}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label class="block font-bold text-slate-700 mb-1">售價 (HK$) *</label>
+                                            <input 
+                                                type="number" 
+                                                min="0"
+                                                required
+                                                value={formData.price}
+                                                onChange={e => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })}
+                                                class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 font-mono font-bold focus:outline-none focus:border-slate-900"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label class="block font-bold text-slate-700 mb-1">總進貨庫存 *</label>
+                                            <input 
+                                                type="number" 
+                                                min="0"
+                                                required
+                                                value={formData.stock}
+                                                onChange={e => setFormData({ ...formData, stock: parseInt(e.target.value) || 0 })}
+                                                class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 font-mono font-bold focus:outline-none focus:border-slate-900"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label class="block font-bold text-slate-700 mb-1">合作模式</label>
+                                            <select 
+                                                value={formData.type}
+                                                onChange={e => setFormData({ ...formData, type: e.target.value, artistSplit: e.target.value === 'outright' ? 1.0 : 0.70 })}
+                                                class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 font-bold focus:outline-none focus:border-slate-900"
+                                            >
+                                                <option value="consignment">寄賣 (Consignment)</option>
+                                                <option value="outright">買斷 (Outright)</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="block font-bold text-slate-700 mb-1">創作者拆賬拆分 (%)</label>
+                                            <input 
+                                                type="number" 
+                                                step="0.05"
+                                                min="0"
+                                                max="1"
+                                                disabled={formData.type === 'outright'}
+                                                value={formData.artistSplit}
+                                                onChange={e => setFormData({ ...formData, artistSplit: parseFloat(e.target.value) || 0 })}
+                                                class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 font-mono font-bold focus:outline-none focus:border-slate-900 disabled:opacity-50"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label class="block font-bold text-slate-700 mb-1">封面圖片網址 / 檔案上傳</label>
+                                        <input 
+                                            type="text" 
+                                            value={formData.cover}
+                                            onChange={e => setFormData({ ...formData, cover: e.target.value })}
+                                            placeholder="https://..."
+                                            class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-slate-900 font-medium focus:outline-none focus:border-slate-900 mb-1.5"
+                                        />
+                                        <input 
+                                            type="file" 
+                                            accept="image/*"
+                                            onChange={handleImageUpload}
+                                            class="text-[11px] text-slate-500 file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200"
+                                        />
+                                    </div>
+
+                                    {/* FOOTER: LEFT SIDE SAFE DELETE / RIGHT SIDE ACTIONS */}
+                                    <div class="flex items-center justify-between pt-4 border-t border-slate-100 mt-5">
+                                        {/* 彈窗左下角：二次確認下架刪除功能 */}
+                                        <div>
+                                            {editingProduct ? (
+                                                !isDeleteConfirming ? (
+                                                    <button 
+                                                        type="button"
+                                                        onClick={() => setIsDeleteConfirming(true)}
+                                                        class="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl font-bold text-xs transition-all flex items-center gap-1.5 active:scale-95"
+                                                    >
+                                                        <span>🗑️ 下架刪除貨品</span>
+                                                    </button>
+                                                ) : (
+                                                    <div class="flex items-center gap-2 bg-rose-50 p-2 rounded-xl border border-rose-200 animate-fadeIn">
+                                                        <span class="text-[11px] font-bold text-rose-800">⚠️ 確定下架刪除？</span>
+                                                        <button 
+                                                            type="button"
+                                                            onClick={handleDeleteProduct}
+                                                            class="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-xs rounded-lg shadow-xs transition-all active:scale-95"
+                                                        >
+                                                            確認刪除
+                                                        </button>
+                                                        <button 
+                                                            type="button"
+                                                            onClick={() => setIsDeleteConfirming(false)}
+                                                            class="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 font-bold text-xs rounded-lg transition-all"
+                                                        >
+                                                            取消
+                                                        </button>
+                                                    </div>
+                                                )
+                                            ) : (
+                                                <div />
+                                            )}
+                                        </div>
+
+                                        {/* 右下角儲存/取消按鈕 */}
+                                        <div class="flex items-center gap-2">
+                                            <button 
+                                                type="button"
+                                                onClick={() => {
+                                                    setIsNewProductModalOpen(false);
+                                                    setIsDeleteConfirming(false);
+                                                }}
+                                                class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all"
+                                            >
+                                                取消
+                                            </button>
+                                            <button 
+                                                type="submit"
+                                                class="px-5 py-2 bg-slate-900 hover:bg-black text-white font-bold text-xs rounded-xl shadow-xs transition-all active:scale-95"
+                                            >
+                                                {editingProduct ? '儲存修改' : '確認建立書籍'}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* NEW HOLD MODAL */}
+                    {isHoldModalOpen && (
+                        <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-fadeIn">
+                            <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100">
+                                <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+                                    <h3 class="font-black text-base text-slate-900">新增 Hold 貨與市集/客人預留</h3>
+                                    <button onClick={() => setIsHoldModalOpen(false)} class="text-slate-400 hover:text-slate-800 font-bold">✕</button>
+                                </div>
+
+                                <form onSubmit={handleAddHoldStock} class="space-y-4 pt-4 text-xs">
+                                    <div>
+                                        <label class="block font-bold text-slate-700 mb-1">選擇預留書籍 *</label>
+                                        <select 
+                                            required
+                                            value={holdForm.productId}
+                                            onChange={e => setHoldForm({ ...holdForm, productId: e.target.value })}
+                                            class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 font-bold focus:outline-none focus:border-slate-900"
+                                        >
+                                            <option value="">-- 請選擇書籍 --</option>
+                                            {products.map(p => {
+                                                const avail = p.stock - (p.holdStock || 0);
+                                                return (
+                                                    <option key={p.id} value={p.id} disabled={avail <= 0}>
+                                                        {p.title} ({p.artist}) - 可售剩餘: {avail} 本
+                                                    </option>
+                                                );
+                                            })}
+                                        </select>
+                                    </div>
+
+                                    <div>
+                                        <label class="block font-bold text-slate-700 mb-1">預留用途 / 市集名稱 / 客人姓名 *</label>
+                                        <input 
+                                            type="text" 
+                                            required
+                                            placeholder="例如：Book Fair 展覽現場 / 黃小姐預留"
+                                            value={holdForm.targetName}
+                                            onChange={e => setHoldForm({ ...holdForm, targetName: e.target.value })}
+                                            class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 font-bold focus:outline-none focus:border-slate-900"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label class="block font-bold text-slate-700 mb-1">預留數量 *</label>
+                                        <input 
+                                            type="number" 
+                                            min="1"
+                                            required
+                                            value={holdForm.qty}
+                                            onChange={e => setHoldForm({ ...holdForm, qty: parseInt(e.target.value) || 1 })}
+                                            class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 font-mono font-bold focus:outline-none focus:border-slate-900"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label class="block font-bold text-slate-700 mb-1">備註說明</label>
+                                        <input 
+                                            type="text" 
+                                            placeholder="例如：帶往現場販售，預計下週展期結束"
+                                            value={holdForm.note}
+                                            onChange={e => setHoldForm({ ...holdForm, note: e.target.value })}
+                                            class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 font-medium focus:outline-none focus:border-slate-900"
+                                        />
+                                    </div>
+
+                                    <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+                                        <button 
+                                            type="button" 
+                                            onClick={() => setIsHoldModalOpen(false)}
+                                            class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl"
+                                        >
+                                            取消
+                                        </button>
+                                        <button 
+                                            type="submit" 
+                                            class="px-5 py-2 bg-slate-900 hover:bg-black text-white font-bold text-xs rounded-xl shadow-xs"
+                                        >
+                                            確認新增 Hold 貨
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* CSV IMPORT MODAL */}
+                    {isImportModalOpen && (
+                        <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-fadeIn">
+                            <div class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100">
+                                <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+                                    <h3 class="font-black text-base text-slate-900">批次 CSV 數據匯入</h3>
+                                    <button onClick={() => setIsImportModalOpen(false)} class="text-slate-400 hover:text-slate-800 font-bold">✕</button>
+                                </div>
+
+                                <div class="space-y-3 pt-4 text-xs">
+                                    <p class="text-slate-500">格式：書名, 作者, 分類, 售價, 庫存, Hold貨量, 模式(寄賣/買斷)</p>
+                                    <textarea 
+                                        rows="6"
+                                        value={importText}
+                                        onChange={e => setImportText(e.target.value)}
+                                        placeholder={`一臉一詞, Apple Wong, 香港書, 120, 10, 0, 寄賣\n城市觀察, 陳大文, ZINE, 65, 15, 2, 買斷`}
+                                        class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-900 font-mono text-xs focus:outline-none focus:border-slate-900"
+                                    ></textarea>
+
+                                    <div class="flex items-center justify-end gap-2 pt-2">
+                                        <button 
+                                            type="button" 
+                                            onClick={() => setIsImportModalOpen(false)}
+                                            class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl"
+                                        >
+                                            取消
+                                        </button>
+                                        <button 
+                                            type="button" 
+                                            onClick={handleCSVImport}
+                                            class="px-5 py-2 bg-slate-900 hover:bg-black text-white font-bold rounded-xl shadow-xs"
+                                        >
+                                            開始匯入
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
