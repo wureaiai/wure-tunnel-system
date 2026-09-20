@@ -33,6 +33,7 @@
     <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <style>
       @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Noto+Sans+TC:wght@300;400;500;700;900&display=swap');
@@ -61,6 +62,9 @@
     <div id="root"></div>
 
     <script type="text/babel">
+        const SUPABASE_URL = '你的_SUPABASE_URL';
+const SUPABASE_ANON_KEY = '你的_ANON_KEY';
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         const FIXED_QUICK_KEYS = ['全部', '香港人製', '香港書', '台灣書', '一拳書', 'ZINE', '明信片', '貼紙', 'Tee', '其他'];
         const CATEGORIES_INPUT = ['香港人製', '香港書', '台灣書', '一拳書', 'ZINE', '明信片', '貼紙', 'Tee', '其他'];
 
@@ -76,32 +80,44 @@
         ];
 
         function App() {
-            const getSavedState = (key, defaultValue) => {
-                try {
-                    const saved = localStorage.getItem(`wure_tunnel_${key}`);
-                    return saved ? JSON.parse(saved) : defaultValue;
-                } catch (e) {
-                    return defaultValue;
-                }
-            };
+  // 1. 新增用戶登入狀態
+    const [user, setUser] = React.useState(null);
 
-            const setSavedState = (key, value) => {
-                try {
-                    localStorage.setItem(`wure_tunnel_${key}`, JSON.stringify(value));
-                } catch (e) {
-                    console.error('Storage save error:', e);
-                }
-            };
+    // 2. 將預設值改為空陣列 []（改為等 Supabase 雲端載入資料）
+    const [products, setProducts] = React.useState([]);
+    const [salesLogs, setSalesLogs] = React.useState([]);
+    const [holdList, setHoldList] = React.useState([]);
 
-            const [products, setProducts] = React.useState(() => getSavedState('products', INITIAL_PRODUCTS));
-            const [systemMode, setSystemMode] = React.useState('pos'); // 'pos' or 'admin'
-            const [activeTab, setActiveTab] = React.useState('pos'); // 'pos', 'settlement', 'inventory', 'hold', 'sales'
-            const [selectedCategory, setSelectedCategory] = React.useState('全部');
-            const [searchQuery, setSearchQuery] = React.useState('');
-            
-            // Cart & POS state
-            const [cart, setCart] = React.useState([]);
-            const [paymentMethod, setPaymentMethod] = React.useState('FPS');
+    const [systemMode, setSystemMode] = React.useState('pos'); 
+    const [activeTab, setActiveTab] = React.useState('pos'); 
+    const [selectedCategory, setSelectedCategory] = React.useState('全部');
+    const [searchQuery, setSearchQuery] = React.useState('');
+    
+    // Cart & POS state
+    const [cart, setCart] = React.useState([]);
+    const [paymentMethod, setPaymentMethod] = React.useState('FPS');
+
+    // 3. 加入 Supabase 雲端資料讀取與登入狀態監聽
+    React.useEffect(() => {
+        // 檢查與監聽登入狀態
+        supabaseClient.auth.getSession().then(({ data: { session } }) => setUser(session?.user ?? null));
+        const { data: { subscription } } = supabaseClient.auth.onAuthStateChange((_event, session) => setUser(session?.user ?? null));
+
+        // 向 Supabase 雲端資料庫抓取產品、銷售紀錄及 Hold 貨清單
+        async function fetchCloudData() {
+            const { data: pData } = await supabaseClient.from('products').select('*');
+            if (pData) setProducts(pData);
+
+            const { data: sData } = await supabaseClient.from('sales_logs').select('*');
+            if (sData) setSalesLogs(sData);
+
+            const { data: hData } = await supabaseClient.from('hold_list').select('*');
+            if (hData) setHoldList(hData);
+        }
+
+        fetchCloudData();
+        return () => subscription.unsubscribe();
+    }, []);
             const [salesLogs, setSalesLogs] = React.useState(() => getSavedState('salesLogs', [
                 { id: 'TX1001', date: '2026-03-08 14:20', items: [{ title: '一臉一詞', qty: 1, price: 120 }], total: 120, paymentMethod: 'FPS' },
                 { id: 'TX1002', date: '2026-03-08 15:45', items: [{ title: '舊城記憶明信片套裝', qty: 2, price: 45 }], total: 90, paymentMethod: 'PayMe' }
@@ -149,10 +165,7 @@
             const [fastStockInId, setFastStockInId] = React.useState('');
             const [fastStockInQty, setFastStockInQty] = React.useState(1);
 
-            // Persistence Effects
-            React.useEffect(() => { setSavedState('products', products); }, [products]);
-            React.useEffect(() => { setSavedState('salesLogs', salesLogs); }, [salesLogs]);
-            React.useEffect(() => { setSavedState('holdList', holdList); }, [holdList]);
+           
 
             const showToast = (msg) => {
                 setToastMessage(msg);
@@ -213,52 +226,55 @@
                 setFastStockInQty(1);
             };
 
-            const handleAddHoldStock = (e) => {
-                e.preventDefault();
-                if (!holdForm.productId) {
-                    showToast('請選擇要 Hold 貨預留的書籍');
-                    return;
-                }
-                const qty = parseInt(holdForm.qty);
-                if (isNaN(qty) || qty <= 0) {
-                    showToast('請輸入有效的 Hold 貨數量');
-                    return;
-                }
+            const handleAddHoldStock = async (e) => { // 👈 1. 加上 async
+    e.preventDefault();
+    if (!holdForm.productId) {
+        showToast('請選擇要 Hold 貨預留的書籍');
+        return;
+    }
+    const qty = parseInt(holdForm.qty);
+    if (isNaN(qty) || qty <= 0) {
+        showToast('請輸入有效的 Hold 貨數量');
+        return;
+    }
 
-                const targetProd = products.find(p => p.id === holdForm.productId);
-                if (!targetProd) return;
+    const targetProd = products.find(p => p.id === holdForm.productId);
+    if (!targetProd) return;
 
-                const currentAvailable = targetProd.stock - (targetProd.holdStock || 0);
-                if (qty > currentAvailable) {
-                    showToast(`預留數量 (${qty}) 不能超過現有門市可售庫存 (${currentAvailable})`);
-                    return;
-                }
+    const currentAvailable = targetProd.stock - (targetProd.holdStock || 0);
+    if (qty > currentAvailable) {
+        showToast(`預留數量 (${qty}) 不能超過現有門市可售庫存 (${currentAvailable})`);
+        return;
+    }
 
-                // 更新產品 Hold 庫存
-                setProducts(prev => prev.map(p => {
-                    if (p.id === holdForm.productId) {
-                        return { ...p, holdStock: (p.holdStock || 0) + qty };
-                    }
-                    return p;
-                }));
+    // 更新產品 Hold 庫存
+    setProducts(prev => prev.map(p => {
+        if (p.id === holdForm.productId) {
+            return { ...p, holdStock: (p.holdStock || 0) + qty };
+        }
+        return p;
+    }));
 
-                // 新增 Hold 紀錄
-                const nowStr = new Date().toISOString().split('T')[0];
-                const newHoldItem = {
-                    id: 'H' + Math.floor(100 + Math.random() * 900),
-                    targetName: holdForm.targetName || 'Book Fair / 市集活動預留',
-                    productId: targetProd.id,
-                    productTitle: targetProd.title,
-                    qty: qty,
-                    date: nowStr,
-                    note: holdForm.note || '市集/活動展覽預留'
-                };
+    // 新增 Hold 紀錄
+    const nowStr = new Date().toISOString().split('T')[0];
+    const newHoldItem = {
+        id: 'H' + Math.floor(100 + Math.random() * 900),
+        targetName: holdForm.targetName || 'Book Fair / 市集活動預留',
+        productId: targetProd.id,
+        productTitle: targetProd.title,
+        qty: qty,
+        date: nowStr,
+        note: holdForm.note || '市集/活動展覽預留'
+    };
 
-                setHoldList(prev => [newHoldItem, ...prev]);
-                showToast(`已成功預留《${targetProd.title}》 ${qty} 本（${newHoldItem.targetName}）！`);
-                setIsHoldModalOpen(false);
-                setHoldForm({ productId: '', targetName: '', qty: 1, note: '' });
-            };
+    // 👈 2. 新增：將 Hold 貨紀錄寫入 Supabase
+    await supabaseClient.from('hold_list').insert([newHoldItem]);
+
+    setHoldList(prev => [newHoldItem, ...prev]);
+    showToast(`已成功預留《${targetProd.title}》 ${qty} 本（${newHoldItem.targetName}）！`);
+    setIsHoldModalOpen(false);
+    setHoldForm({ productId: '', targetName: '', qty: 1, note: '' });
+};
 
             // 釋放 Hold 貨 (取消預留，歸還門市可售)
             const handleReleaseHold = (holdItem) => {
@@ -368,35 +384,38 @@
                 }).filter(Boolean));
             };
 
-            const handleCheckout = () => {
-                if (cart.length === 0) return;
-                const total = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
-                const nowStr = new Date().toLocaleString('zh-HK', { hour12: false }).replace(/\//g, '-');
-                
-                const newLog = {
-                    id: 'TX' + Math.floor(100000 + Math.random() * 900000),
-                    date: nowStr,
-                    items: cart.map(c => ({ title: c.title, qty: c.qty, price: c.price })),
-                    total: total,
-                    paymentMethod: paymentMethod
-                };
+const handleCheckout = async () => { // 👈 1. 加上 async
+    if (cart.length === 0) return;
+    const total = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
+    const nowStr = new Date().toLocaleString('zh-HK', { hour12: false }).replace(/\//g, '-');
+    
+    const newLog = {
+        id: 'TX' + Math.floor(100000 + Math.random() * 900000),
+        date: nowStr,
+        items: cart.map(c => ({ title: c.title, qty: c.qty, price: c.price })),
+        total: total,
+        paymentMethod: paymentMethod
+    };
 
-                setProducts(prev => prev.map(p => {
-                    const cartItem = cart.find(c => c.id === p.id);
-                    if (cartItem) {
-                        return {
-                            ...p,
-                            stock: Math.max(0, p.stock - cartItem.qty),
-                            soldCount: (p.soldCount || 0) + cartItem.qty
-                        };
-                    }
-                    return p;
-                }));
+    // 👈 2. 新增：將銷售紀錄寫入 Supabase
+    await supabaseClient.from('sales_logs').insert([newLog]);
 
-                setSalesLogs(prev => [newLog, ...prev]);
-                setCart([]);
-                showToast(`已成功完成結帳！總額: HK$ ${total} (${paymentMethod})`);
+    setProducts(prev => prev.map(p => {
+        const cartItem = cart.find(c => c.id === p.id);
+        if (cartItem) {
+            return {
+                ...p,
+                stock: Math.max(0, p.stock - cartItem.qty),
+                soldCount: (p.soldCount || 0) + cartItem.qty
             };
+        }
+        return p;
+    }));
+
+    setSalesLogs(prev => [newLog, ...prev]);
+    setCart([]);
+    showToast(`已成功完成結帳！總額: HK$ ${total} (${paymentMethod})`);
+};
 
             const openNewProductModal = () => {
                 setFormData({
@@ -445,34 +464,41 @@
                 showToast(`已安全下架並刪除《${delTitle}》！`);
             };
 
-            const handleSaveProduct = (e) => {
-                e.preventDefault();
-                if (!formData.title || !formData.artist) {
-                    showToast('請填寫書籍名稱與創作者/作者');
-                    return;
-                }
+const handleSaveProduct = async (e) => { // 👈 1. 加上 async
+    e.preventDefault();
+    if (!formData.title || !formData.artist) {
+        showToast('請填寫書籍名稱與創作者/作者');
+        return;
+    }
 
-                if (formData.holdStock > formData.stock) {
-                    showToast(`Hold 貨預留量 (${formData.holdStock}) 不能大於總庫存 (${formData.stock})`);
-                    return;
-                }
+    if (formData.holdStock > formData.stock) {
+        showToast(`Hold 貨預留量 (${formData.holdStock}) 不能大於總庫存 (${formData.stock})`);
+        return;
+    }
 
-                if (editingProduct) {
-                    setProducts(prev => prev.map(p => p.id === editingProduct.id ? { ...p, ...formData } : p));
-                    showToast('已成功更新舊貨品資料');
-                } else {
-                    const newProd = {
-                        id: 'BK' + String(products.length + 1).padStart(3, '0'),
-                        ...formData,
-                        holdStock: formData.holdStock || 0,
-                        soldCount: 0,
-                        cover: formData.cover || 'https://placehold.co/300x400/f1f5f9/334155?text=' + encodeURIComponent(formData.title || '新書')
-                    };
-                    setProducts(prev => [newProd, ...prev]);
-                    showToast('新書籍已成功建檔');
-                }
-                setIsNewProductModalOpen(false);
-            };
+    if (editingProduct) {
+        // 👈 2. 新增：更新 Supabase 資料庫中的舊書籍
+        await supabaseClient.from('products').update(formData).eq('id', editingProduct.id);
+
+        setProducts(prev => prev.map(p => p.id === editingProduct.id ? { ...p, ...formData } : p));
+        showToast('已成功更新舊貨品資料');
+    } else {
+        const newProd = {
+            id: 'BK' + String(products.length + 1).padStart(3, '0'),
+            ...formData,
+            holdStock: formData.holdStock || 0,
+            soldCount: 0,
+            cover: formData.cover || 'https://placehold.co/300x400/f1f5f9/334155?text=' + encodeURIComponent(formData.title || '新書')
+        };
+
+        // 👈 3. 新增：將新書籍資料寫入 Supabase
+        await supabaseClient.from('products').insert([newProd]);
+
+        setProducts(prev => [newProd, ...prev]);
+        showToast('新書籍已成功建檔');
+    }
+    setIsNewProductModalOpen(false);
+};
 
             const handleImageUpload = (e) => {
                 const file = e.target.files[0];
@@ -580,6 +606,24 @@
                                 >
                                     <span>+ 新書籍/商品增加</span>
                                 </button>
+                                {user ? (
+    <div class="flex items-center gap-2">
+        <span class="text-xs font-bold text-slate-700">{user.email}</span>
+        <button 
+            onClick={() => supabase.auth.signOut()} 
+            class="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 rounded-xl text-xs font-bold"
+        >
+            登出
+        </button>
+    </div>
+) : (
+    <button 
+        onClick={() => supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.href } })} 
+        class="px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold"
+    >
+        🔑 登入
+    </button>
+)}
                             </div>
                         </div>
 
